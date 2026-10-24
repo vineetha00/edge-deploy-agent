@@ -1,5 +1,7 @@
 import pytest
 
+from edge_deploy_agent.runner import BENCH_SCRIPT as BENCH
+from edge_deploy_agent.runner import PI_PYTHON as PY
 from edge_deploy_agent.runner import validate
 
 ALLOWED = [
@@ -9,7 +11,10 @@ ALLOWED = [
     ["free", "-h"],
     ["vcgencmd", "measure_temp"],
     ["vcgencmd", "get_throttled"],
-    ["python3", "/home/agent/bench/run.py", "--model", "mobilenet_v2.int8"],
+    ["df", "-h", "/"],
+    [PY, BENCH, "--model", "mobilenet_v2.int8"],
+    [PY, BENCH, "--model", "m", "--threads", "4", "--iters", "100"],
+    [PY, BENCH, "--model", "m", "--threads", "2", "--opt", "0"],
 ]
 
 

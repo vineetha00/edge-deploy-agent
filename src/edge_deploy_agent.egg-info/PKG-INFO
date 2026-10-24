@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: edge-deploy-agent
+Version: 0.0.1
+Summary: Nemotron-driven agent that optimizes and benchmarks models on a Raspberry Pi 4 within latency and RAM budgets.
+License: MIT
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn>=0.29
+Requires-Dist: prometheus-client>=0.20
+Requires-Dist: pydantic>=2.6
+Requires-Dist: httpx>=0.27
+Requires-Dist: langgraph>=0.2
+Requires-Dist: opentelemetry-api>=1.24
+Requires-Dist: opentelemetry-sdk>=1.24
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+Requires-Dist: onnx>=1.16; extra == "dev"
+Requires-Dist: onnxruntime>=1.18; extra == "dev"
+Requires-Dist: numpy>=1.26; extra == "dev"
+Requires-Dist: psutil>=5.9; extra == "dev"
+Requires-Dist: sympy>=1.12; extra == "dev"
+Provides-Extra: speech
+Requires-Dist: huggingface_hub>=0.23; extra == "speech"
+Requires-Dist: datasets<4,>=2.18; extra == "speech"
+Requires-Dist: soundfile>=0.12; extra == "speech"
+Dynamic: license-file

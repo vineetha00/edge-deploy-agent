@@ -20,14 +20,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.4"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.4", "onnx>=1.16", "onnxruntime>=1.18", "numpy>=1.26", "psutil>=5.9", "sympy>=1.12"]
+speech = ["huggingface_hub>=0.23", "datasets>=2.18,<4", "soundfile>=0.12"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts", "."]
 
 [tool.ruff]
 line-length = 100
