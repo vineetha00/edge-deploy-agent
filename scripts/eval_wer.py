@@ -84,8 +84,8 @@ def main() -> None:
     for m in args.models:
         wer = corpus_wer([r.upper() for r in refs], transcribe(m, audio, vocab, args.threads))
         results[m.stem] = round(wer, 4)
-        print(f"{m.stem}: WER {wer:.2%} on {len(refs)} utterances")
-    args.out.write_text(json.dumps(results, indent=2))
+        print(f"{m.stem}: WER {wer:.2%} on {len(refs)} utterances", flush=True)
+        args.out.write_text(json.dumps(results, indent=2))  # save after each model
 
 
 if __name__ == "__main__":

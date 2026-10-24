@@ -13,14 +13,15 @@ from edge_deploy_agent.agent import accuracy_ok, meets_budget
 VOCAB = {"<pad>": 0, "|": 1, "A": 2, "B": 3, "C": 4}
 
 
-def tiny_ctc_model(path):
+def tiny_ctc_model(path, opset=17):
     """wav2vec2-shaped stand-in: raw audio [1, T] -> Conv -> MatMul -> logits [1, F, V]."""
     rng = np.random.default_rng(0)
     w1 = numpy_helper.from_array(rng.standard_normal((8, 1, 400)).astype(np.float32) * 0.05, "w1")
     w2 = numpy_helper.from_array(rng.standard_normal((8, 5)).astype(np.float32), "w2")
     ax = numpy_helper.from_array(np.array([1], dtype=np.int64), "ax")
     nodes = [
-        helper.make_node("Unsqueeze", ["input_values", "ax"], ["u"]),
+        helper.make_node("Unsqueeze", ["input_values", "ax"], ["u"]) if opset >= 13
+        else helper.make_node("Unsqueeze", ["input_values"], ["u"], axes=[1]),
         helper.make_node("Conv", ["u", "w1"], ["c"], strides=[320]),
         helper.make_node("Transpose", ["c"], ["t"], perm=[0, 2, 1]),
         helper.make_node("MatMul", ["t", "w2"], ["logits"]),
@@ -29,13 +30,13 @@ def tiny_ctc_model(path):
         nodes, "tiny",
         [helper.make_tensor_value_info("input_values", TensorProto.FLOAT, [1, "T"])],
         [helper.make_tensor_value_info("logits", TensorProto.FLOAT, [1, "F", 5])],
-        [w1, w2, ax])
-    m = helper.make_model(g, opset_imports=[helper.make_opsetid("", 17)])
+        [w1, w2, ax] if opset >= 13 else [w1, w2])
+    m = helper.make_model(g, opset_imports=[helper.make_opsetid("", opset)])
     m.ir_version = 9
     onnx.save(m, path)
 
 
-def eval_set(d, n=6):
+def eval_set(d, n=8):
     d.mkdir()
     rng = np.random.default_rng(1)
     np.savez(d / "audio.npz", **{f"a{i}": rng.standard_normal(16000 + 800 * i).astype(np.float32)
@@ -55,9 +56,10 @@ def test_corpus_wer():
     assert eval_wer.corpus_wer(["A B C D"], ["A X C"]) == pytest.approx(2 / 4)
 
 
-def test_variants_build_load_and_score(tmp_path):
+@pytest.mark.parametrize("opset", [11, 17])  # 11 = like the Xenova export that broke QDQ
+def test_variants_build_load_and_score(tmp_path, opset):
     src = tmp_path / "model.onnx"
-    tiny_ctc_model(src)
+    tiny_ctc_model(src, opset)
     eval_set(tmp_path / "eval")
     paths = speech_variants.build(src, tmp_path / "eval", tmp_path / "models", n_calib=4)
     assert [p.name for p in paths] == ["w2v_fp32.onnx", "w2v_int8dyn.onnx", "w2v_int8qdq.onnx"]
@@ -93,3 +95,15 @@ def test_wer_gate():
     assert not meets_budget({**RES, "model": "w2v_int8qdq"}, GOAL)      # over the gate
     assert not meets_budget({**RES, "model": "w2v_int8dyn"}, GOAL)      # never measured
     assert accuracy_ok("anything", {"latency_p95_ms": 1, "ram_mb": 1})  # no gate set
+
+
+def test_activation_matmuls_excluded(tmp_path):
+    """Attention-style MatMul (both inputs are activations) must stay in float."""
+    w = numpy_helper.from_array(np.ones((4, 4), dtype=np.float32), "w")
+    nodes = [helper.make_node("MatMul", ["x", "w"], ["h"], name="weight_mm"),
+             helper.make_node("Transpose", ["h"], ["ht"], perm=[1, 0]),
+             helper.make_node("MatMul", ["h", "ht"], ["y"], name="attn_mm")]
+    g = helper.make_graph(nodes, "g", [helper.make_tensor_value_info("x", TensorProto.FLOAT, [3, 4])],
+                          [helper.make_tensor_value_info("y", TensorProto.FLOAT, [3, 3])], [w])
+    onnx.save(helper.make_model(g, opset_imports=[helper.make_opsetid("", 17)]), tmp_path / "m.onnx")
+    assert speech_variants.activation_matmuls(tmp_path / "m.onnx") == ["attn_mm"]
