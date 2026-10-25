@@ -15,3 +15,5 @@ __pycache__/
 mlruns/
 mlflow.db
 mlartifacts/
+/triton_repo/
+/mlflow-data/

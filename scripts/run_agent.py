@@ -37,6 +37,7 @@ def main() -> None:
                     "(avoid 5000 on macOS: AirPlay Receiver answers it with HTTP 403)")
     ap.add_argument("--otlp-endpoint", help="OTLP/HTTP collector, e.g. http://localhost:4318")
     ap.add_argument("--max-iters", type=int, help="cap on benchmark iterations per run")
+    ap.add_argument("--save", type=Path, help="write goal, trials and best config as JSON")
     ap.add_argument("--no-docs", action="store_true", help="skip the Tavily doc lookup")
     ap.add_argument("--max-wer", type=float, help="accuracy gate, e.g. 0.05 for 5%% WER")
     args = ap.parse_args()
@@ -135,6 +136,22 @@ def run(args, goal, client, llm, researcher, tracker) -> None:
     print(state["report"])
     if tracker and not tracker.disabled:
         print(f"MLflow run: {args.mlflow_uri}")
+    if args.save:
+        save_run(args.save, goal, state)
+        print(f"Saved run to {args.save}")
+
+
+def save_run(path: Path, goal: dict, state: dict) -> None:
+    """Record of the run: the evidence behind any number quoted from it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "goal": goal,
+        "trials": state.get("trials", []),
+        "best": state.get("best"),
+        "report": state.get("report"),
+        "docs": [{"title": d.get("title"), "url": d.get("url"), "flags": d.get("flags")}
+                 for d in state.get("docs") or []],
+    }, indent=2))
 
 
 if __name__ == "__main__":
