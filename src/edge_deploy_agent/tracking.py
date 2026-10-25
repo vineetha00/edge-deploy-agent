@@ -1,7 +1,10 @@
 """Experiment tracking: one MLflow parent run per agent session, one nested run per trial."""
 from __future__ import annotations
 
+import logging
 from typing import Any, Protocol
+
+log = logging.getLogger(__name__)
 
 
 class Tracker(Protocol):
@@ -19,6 +22,38 @@ class NullTracker:
 
     def finish(self, state: dict) -> None:
         pass
+
+
+class SafeTracker:
+    """Wrap a tracker so a tracking outage (server down, port clash, 403) never stops the agent.
+    After the first failure it warns once and turns itself off for the rest of the session."""
+
+    def __init__(self, inner: Tracker):
+        self._inner, self.disabled, self.last_error = inner, False, None
+
+    def _call(self, name: str, *args) -> None:
+        if self.disabled:
+            return
+        try:
+            getattr(self._inner, name)(*args)
+        except Exception as exc:  # noqa: BLE001 - tracking is best-effort by design
+            self.disabled, self.last_error = True, f"{type(exc).__name__}: {exc}"
+            log.warning("experiment tracking disabled after error in %s: %s", name,
+                        self.last_error[:200])
+            print(f"WARNING: experiment tracking turned off ({self.last_error[:160]})")
+
+    def start(self, goal: dict) -> None:
+        self._call("start", goal)
+
+    def log_trial(self, index: int, trial: dict, goal: dict) -> None:
+        self._call("log_trial", index, trial, goal)
+
+    def finish(self, state: dict) -> None:
+        self._call("finish", state)
+
+    def fail(self, error: str) -> None:
+        if hasattr(self._inner, "fail"):
+            self._call("fail", error)
 
 
 def trial_record(trial: dict, goal: dict) -> tuple[dict, dict, dict]:
@@ -54,6 +89,8 @@ def trial_record(trial: dict, goal: dict) -> tuple[dict, dict, dict]:
 
 
 class MlflowTracker:
+    """Use as: start(goal) ... then the graph calls log_trial/finish; call fail() on a crash."""
+
     def __init__(self, tracking_uri: str, experiment: str = "edge-deploy-agent",
                  run_name: str | None = None, artifact_location: str | None = None):
         import mlflow
@@ -102,3 +139,9 @@ class MlflowTracker:
         mlflow.log_dict({"trials": trials, "best": best}, "trials.json")
         mlflow.log_text(state.get("report") or "", "report.txt")
         mlflow.end_run()
+
+    def fail(self, error: str) -> None:
+        mlflow = self._mlflow
+        while mlflow.active_run() is not None:  # close any nested trial run first
+            mlflow.set_tag("error", error[:250])
+            mlflow.end_run(status="FAILED")

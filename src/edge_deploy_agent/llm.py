@@ -46,6 +46,14 @@ class NebiusClient:
             transport=transport,
         )
 
+    def check(self) -> None:
+        """Fail fast with a clear message if the key is wrong (free call, no tokens used)."""
+        resp = self._http.get("/models")
+        if resp.status_code == 401:
+            raise LLMError("Token Factory rejected NEBIUS_API_KEY (HTTP 401): check the key")
+        if resp.status_code != 200:
+            raise LLMError(f"Token Factory /models returned HTTP {resp.status_code}")
+
     def chat(self, model: str, messages: list[dict], max_tokens: int = 1500) -> LLMResult:
         with tracer.start_as_current_span("llm.chat") as span:
             span.set_attribute("gen_ai.system", "nebius_token_factory")

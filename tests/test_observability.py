@@ -86,3 +86,71 @@ def test_mlflow_logs_session_and_nested_trials(tmp_path):
     with open(path) as f:
         art = json.load(f)
     assert len(art["trials"]) == 3
+
+
+def test_nebius_check_gives_clear_401_error():
+    from edge_deploy_agent.llm import LLMError
+
+    c = NebiusClient("bad", transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+    with pytest.raises(LLMError, match="rejected NEBIUS_API_KEY"):
+        c.check()
+    ok = NebiusClient("k", transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})))
+    ok.check()
+
+
+def test_mlflow_failed_session_is_marked_failed(tmp_path):
+    mlflow = pytest.importorskip("mlflow")
+    uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    t = MlflowTracker(uri, experiment="failtest",
+                      artifact_location=(tmp_path / "artifacts").as_uri())
+    t.start(GOAL)
+    t.fail("LLMError: boom")
+    run = mlflow.MlflowClient(uri).get_run(t.parent_run_id)
+    assert run.info.status == "FAILED" and run.data.tags["error"] == "LLMError: boom"
+    assert mlflow.active_run() is None
+
+
+def test_preflight_rejects_bad_nebius_key(monkeypatch):
+    import run_agent
+
+    api = httpx.Client(base_url="http://api",
+                       transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})))
+    monkeypatch.setenv("EDA_API_TOKEN", "t")
+    monkeypatch.setenv("NEBIUS_API_KEY", "your-key")
+
+    class Bad(NebiusClient):
+        def check(self):
+            from edge_deploy_agent.llm import LLMError
+            raise LLMError("Token Factory rejected NEBIUS_API_KEY (HTTP 401): check the key")
+
+    monkeypatch.setattr(run_agent, "NebiusClient", Bad)
+    with pytest.raises(SystemExit, match="rejected NEBIUS_API_KEY"):
+        run_agent.preflight(api, require_docs=False)
+
+
+def test_tracking_outage_does_not_stop_the_agent(capsys):
+    from edge_deploy_agent.tracking import SafeTracker
+
+    class Broken:
+        def start(self, goal): pass
+        def log_trial(self, i, t, g): raise RuntimeError("HTTP 403")
+        def finish(self, s): raise AssertionError("must not be called after disable")
+
+    tracker = SafeTracker(Broken())
+    pi = FakePi()
+    g = build_graph(ScriptedPlanner([bench("int8"), bench("fp32"), {"action": "finish"}]), pi,
+                    auto_approve=True, tracker=tracker)
+    out = g.invoke(initial_state(GOAL), CFG)
+    assert len(pi.calls) == 2 and out["status"] == "done"
+    assert tracker.disabled and "403" in tracker.last_error
+    assert capsys.readouterr().out.count("tracking turned off") == 1
+
+
+def test_check_mlflow_explains_airplay_403(monkeypatch):
+    import run_agent
+
+    monkeypatch.setattr(run_agent.httpx, "get", lambda *a, **k: httpx.Response(403, text=""))
+    with pytest.raises(SystemExit, match="AirPlay"):
+        run_agent.check_mlflow("http://localhost:5000")
+    monkeypatch.setattr(run_agent.httpx, "get", lambda *a, **k: httpx.Response(200, text="OK"))
+    run_agent.check_mlflow("http://127.0.0.1:5001")

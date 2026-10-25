@@ -20,7 +20,7 @@ from .llm import NebiusClient
 from .runner import BENCH_SCRIPT, PI_PYTHON, validate
 from .sanitize import MAX_DOCS, screen_doc
 from .tracing import traced_node
-from .tracking import NullTracker, Tracker
+from .tracking import NullTracker, SafeTracker, Tracker
 
 
 class Transport(Protocol):
@@ -66,6 +66,12 @@ def accuracy_ok(model: str | None, goal: dict) -> bool:
     return wer is not None and wer <= goal["max_wer"]
 
 
+def must_measure(goal: dict) -> list[str]:
+    """Variants that must be benchmarked before finishing: every one that could still win
+    (passes the accuracy gate). Picking a winner without measuring the rest is a guess."""
+    return [m for m in goal["candidates"] if accuracy_ok(m, goal)]
+
+
 def meets_budget(result: dict, goal: dict) -> bool:
     return (
         result.get("run_valid") is True
@@ -78,7 +84,7 @@ def meets_budget(result: dict, goal: dict) -> bool:
 def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = False,
                 max_steps: int = 8, researcher: Callable[[dict], list[dict]] | None = None,
                 tracker: Tracker | None = None):
-    tracker = tracker or NullTracker()
+    tracker = tracker if isinstance(tracker, SafeTracker) else SafeTracker(tracker or NullTracker())
 
     def research(state: AgentState) -> dict:
         if researcher is None:
@@ -97,6 +103,17 @@ def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = 
         p = state["proposal"]
         goal = state["goal"]
         if p.get("action") == "finish":
+            measured = {t["proposal"].get("model") for t in state.get("trials", [])
+                        if "result" in t}
+            if state.get("steps", 0) < max_steps:
+                if not measured:
+                    # A planner that quits before measuring anything has not done the task.
+                    return {"verdict": {"allowed": False, "argv": None,
+                                        "reason": "finish before any measurement"}}
+                missing = [m for m in must_measure(goal) if m not in measured]
+                if missing:
+                    return {"verdict": {"allowed": False, "argv": None,
+                                        "reason": f"finish before measuring {missing}"}}
             return {"verdict": {"allowed": True, "reason": "finish", "argv": None}}
         if p.get("action") != "benchmark":
             return {"verdict": {"allowed": False, "reason": "unknown action", "argv": None}}
@@ -167,6 +184,9 @@ def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = 
                     f"peak RSS {r['peak_rss_mb']:.0f} MB. {n_ok} runs, {n_blocked} blocked.")
         else:
             text = f"No configuration met the budget. {n_ok} runs, {n_blocked} blocked."
+        reason = (state.get("proposal") or {}).get("reason")
+        if reason:
+            text += f" Planner's finish reason: {str(reason)[:300]}"
         tracker.finish({**state, "report": text})
         return {"status": "done", "report": text}
 
@@ -196,7 +216,7 @@ def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = 
 
 def _route_guard(state: AgentState) -> str:
     p, v = state["proposal"], state["verdict"]
-    if p.get("action") == "finish":
+    if p.get("action") == "finish" and v["allowed"]:
         return "report"
     if not v["allowed"]:
         return "record_block"
@@ -242,7 +262,14 @@ class LLMPlanner:
             f"Trials so far: {json.dumps(history)}\n"
             'Reply with ONE JSON object and nothing else: either '
             '{"action":"benchmark","model":<variant>,"threads":<1-4>,"iters":<1-1000>,"opt":<0-3 graph optimization>} '
-            'or {"action":"finish","reason":<text>}. Finish once the best variant is clear.'
+            'or {"action":"finish","reason":<text>}.\n'
+            f"Procedure: (1) benchmark every variant that passes the accuracy gate "
+            f"({must_measure(goal)}) at least once - finishing earlier is refused; "
+            "(2) on the fastest variant within budget, tune threads (1-4) and opt (0-3); "
+            "(3) use iters >= 10 so percentiles are stable, and compare variants at the SAME "
+            "threads and opt so the baseline comparison is fair; "
+            "(4) finish when another change is unlikely to improve p50 by more than 3%, "
+            "citing the measured numbers in your reason."
         )
         res = self.client.chat(self.model, [{"role": "user", "content": prompt}], max_tokens=4000)
         m = _JSON.search(res.content)

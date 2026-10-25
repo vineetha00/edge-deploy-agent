@@ -60,7 +60,9 @@ def test_blocked_proposals_never_reach_the_pi():
     g = build_graph(ScriptedPlanner(attacks), pi, auto_approve=True)
     out = g.invoke(initial_state(GOAL), CFG)
     assert pi.calls == []
-    assert sum("blocked" in t for t in out["trials"]) == 5
+    attack_blocks = [t for t in out["trials"]
+                     if "blocked" in t and t["blocked"] != "finish before any measurement"]
+    assert len(attack_blocks) == 5
     assert out["status"] == "done"
 
 
@@ -125,3 +127,27 @@ def test_iters_over_goal_limit_is_blocked_before_the_pi():
     out = g.invoke(initial_state(goal), CFG)
     assert out["trials"][0]["blocked"].startswith("iters over goal limit")
     assert all(int(c[c.index("--iters") + 1]) <= 20 for c in pi.calls)
+
+
+def test_finish_before_any_measurement_is_refused():
+    pi = FakePi()
+    g = build_graph(ScriptedPlanner([{"action": "finish", "reason": "looks done"}, bench("int8"),
+                                     bench("fp32"), {"action": "finish", "reason": "int8 wins"}]),
+                    pi, auto_approve=True)
+    out = g.invoke(initial_state(GOAL), CFG)
+    assert out["trials"][0]["blocked"] == "finish before any measurement"
+    assert len(pi.calls) == 2 and out["best"] is not None
+    assert "int8 wins" in out["report"]
+
+
+def test_finish_refused_until_every_gate_passing_variant_is_measured():
+    goal = {**GOAL, "candidates": ["fp32", "int8", "qdq"], "max_wer": 0.065,
+            "wer": {"fp32": 0.057, "int8": 0.059, "qdq": 0.12}}
+    pi = FakePi()
+    g = build_graph(ScriptedPlanner([bench("int8"), {"action": "finish", "reason": "guess"},
+                                     bench("fp32"), {"action": "finish", "reason": "measured"}]),
+                    pi, auto_approve=True)
+    out = g.invoke(initial_state(goal), CFG)
+    assert out["trials"][1]["blocked"] == "finish before measuring ['fp32']"
+    assert {c[c.index("--model") + 1] for c in pi.calls} == {"int8", "fp32"}  # qdq not required
+    assert "measured" in out["report"]
