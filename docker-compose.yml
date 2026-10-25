@@ -2,20 +2,22 @@ services:
   api:
     build: .
     ports: ["8000:8000"]
-    depends_on: [db]
-  db:
-    image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-local-only}
-      POSTGRES_DB: eda
-    volumes: ["pgdata:/var/lib/postgresql/data"]
+      EDA_API_TOKEN: ${EDA_API_TOKEN:?set EDA_API_TOKEN}
+      EDA_WORKER_TOKEN: ${EDA_WORKER_TOKEN:?set EDA_WORKER_TOKEN}
   mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
-    command: mlflow server --host 0.0.0.0 --port 5000
+    image: ghcr.io/mlflow/mlflow:v3.17.2
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlruns/mlflow.db --artifacts-destination /mlruns/artifacts
+    volumes: ["mlruns:/mlruns"]
     ports: ["5000:5000"]
+  jaeger:  # trace viewer at http://localhost:16686; OTLP/HTTP on 4318
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["16686:16686", "4318:4318"]
   prometheus:
     image: prom/prometheus:latest
     volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
     ports: ["9090:9090"]
 volumes:
-  pgdata:
+  mlruns:

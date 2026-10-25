@@ -45,7 +45,7 @@ def test_run_benchmark_on_tiny_model(tmp_path):
 def test_run_valid_reflects_throttling(tmp_path, monkeypatch):
     path = tmp_path / "tiny.onnx"
     _tiny_model(path)
-    temps = iter([50.0, 60.0])
+    temps = iter([50.0, 50.0, 60.0])  # cooldown check, before, after
     thr = iter([0x0, 0x40000])  # throttling occurred during the run
     monkeypatch.setattr(bench, "read_temp_c", lambda: next(temps))
     monkeypatch.setattr(bench, "read_throttled", lambda: next(thr))
@@ -60,3 +60,20 @@ def test_graph_opt_level_is_recorded(tmp_path):
     _tiny_model(path)
     r = bench.run_benchmark(path, threads=1, iters=5, warmup=1, opt=0)
     assert r["graph_opt"] == 0
+
+
+def test_cool_down_waits_until_target(monkeypatch):
+    temps = iter([75.0, 70.0, 58.0])
+    slept = []
+    monkeypatch.setattr(bench, "read_temp_c", lambda: next(temps))
+    monkeypatch.setattr(bench.time, "sleep", slept.append)
+    assert bench.cool_down(target_c=60, max_s=100, step_s=5) == 10
+    assert slept == [5, 5]
+
+
+def test_cool_down_gives_up_and_handles_no_sensor(monkeypatch):
+    monkeypatch.setattr(bench.time, "sleep", lambda s: None)
+    monkeypatch.setattr(bench, "read_temp_c", lambda: 90.0)
+    assert bench.cool_down(target_c=60, max_s=15, step_s=5) == 15
+    monkeypatch.setattr(bench, "read_temp_c", lambda: None)
+    assert bench.cool_down(target_c=60, max_s=15, step_s=5) == 0

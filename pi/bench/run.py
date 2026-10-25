@@ -90,9 +90,28 @@ def make_inputs(session: ort.InferenceSession) -> dict[str, np.ndarray]:
     return feeds
 
 
+# Wait for the SoC to cool before measuring, so runs start from comparable temperatures
+# and don't trip the soft temperature limit (which marks a run invalid).
+COOL_TARGET_C = float(os.environ.get("EDA_COOL_TARGET_C", "60"))
+COOL_MAX_S = float(os.environ.get("EDA_COOL_MAX_S", "240"))
+
+
+def cool_down(target_c: float = COOL_TARGET_C, max_s: float = COOL_MAX_S,
+              step_s: float = 5.0) -> float:
+    waited = 0.0
+    while waited < max_s:
+        t = read_temp_c()
+        if t is None or t <= target_c:
+            break
+        time.sleep(step_s)
+        waited += step_s
+    return waited
+
+
 def run_benchmark(
     model_path: Path, threads: int, iters: int, warmup: int = 5, opt: int = 3
 ) -> dict:
+    cooldown_s = cool_down()
     temp_before, thr_before = read_temp_c(), read_throttled()
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = threads
@@ -118,6 +137,7 @@ def run_benchmark(
         "threads": threads,
         "graph_opt": opt,
         "iters": iters,
+        "cooldown_s": cooldown_s,
         "input_shapes": {k: list(v.shape) for k, v in feeds.items()},
         "latency_ms": {
             "p50": float(np.percentile(arr, 50)),

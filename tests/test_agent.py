@@ -115,3 +115,13 @@ def test_opt_level_reaches_the_pi_command():
     g = build_graph(ScriptedPlanner([bench("int8", 2, opt=1)]), pi, auto_approve=True)
     g.invoke(initial_state(GOAL), CFG)
     assert pi.calls[0][-2:] == ["--opt", "1"]
+
+
+def test_iters_over_goal_limit_is_blocked_before_the_pi():
+    pi = FakePi()
+    goal = {**GOAL, "max_iters": 20}
+    g = build_graph(ScriptedPlanner([bench("fp32") | {"iters": 500}, bench("fp32")]), pi,
+                    auto_approve=True)
+    out = g.invoke(initial_state(goal), CFG)
+    assert out["trials"][0]["blocked"].startswith("iters over goal limit")
+    assert all(int(c[c.index("--iters") + 1]) <= 20 for c in pi.calls)

@@ -12,3 +12,5 @@ __pycache__/
 /models/
 /wer.json
 *.egg-info/
+mlruns/
+mlflow.db

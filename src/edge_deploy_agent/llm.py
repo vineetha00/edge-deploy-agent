@@ -8,6 +8,7 @@ import httpx
 from prometheus_client import Counter
 
 from .config import BASE_URL, PRICES_PER_M
+from .tracing import tracer
 
 TOKENS = Counter("eda_llm_tokens_total", "LLM tokens by model and kind", ["model", "kind"])
 CALLS = Counter("eda_llm_calls_total", "LLM calls by model and outcome", ["model", "outcome"])
@@ -46,6 +47,17 @@ class NebiusClient:
         )
 
     def chat(self, model: str, messages: list[dict], max_tokens: int = 1500) -> LLMResult:
+        with tracer.start_as_current_span("llm.chat") as span:
+            span.set_attribute("gen_ai.system", "nebius_token_factory")
+            span.set_attribute("gen_ai.request.model", model)
+            res = self._chat(model, messages, max_tokens)
+            span.set_attribute("gen_ai.usage.input_tokens", res.prompt_tokens)
+            span.set_attribute("gen_ai.usage.output_tokens", res.completion_tokens)
+            if res.cost_usd is not None:
+                span.set_attribute("eda.llm.cost_usd", res.cost_usd)
+            return res
+
+    def _chat(self, model: str, messages: list[dict], max_tokens: int) -> LLMResult:
         # Reasoning models spend completion tokens on thinking, so keep max_tokens generous.
         resp = self._http.post(
             "/chat/completions",
