@@ -51,20 +51,34 @@ resource "kind_cluster" "this" {
   }
 }
 
-# Images are built or pulled on the Mac first (make images), then copied into the node.
-resource "kind_load" "api" {
-  image        = var.api_image
-  cluster_name = kind_cluster.this.name
+# Our two images are built on the Mac (make images) and copied into the kind node.
+# (The kind provider's `kind_load` resource is not in a released version yet, so this uses
+# Terraform's built-in terraform_data + the kind CLI; it re-runs when the cluster or image changes.)
+# Triton is NOT copied: `kind load` of a multi-arch image from Docker Desktop's containerd
+# store fails ("content digest ... not found"), so the node pulls it from nvcr.io itself.
+locals {
+  images = {
+    api    = var.api_image
+    mlflow = var.mlflow_image
+  }
+  # Content hashes of what goes into each image: a rebuilt image keeps its tag, so these
+  # are what tell Terraform to reload it into the node and roll the pods.
+  image_hash = {
+    api = sha1(join("", concat(
+      [filesha1("${local.repo_root}/Dockerfile"), filesha1("${local.repo_root}/pyproject.toml")],
+      [for f in sort(fileset("${local.repo_root}/src", "**/*.py")) : filesha1("${local.repo_root}/src/${f}")]
+    )))
+    mlflow = filesha1("${local.repo_root}/Dockerfile.mlflow")
+  }
 }
 
-resource "kind_load" "mlflow" {
-  image        = var.mlflow_image
-  cluster_name = kind_cluster.this.name
-}
+resource "terraform_data" "load_image" {
+  for_each         = local.images
+  triggers_replace = [kind_cluster.this.id, each.value, local.image_hash[each.key]]
 
-resource "kind_load" "triton" {
-  image        = var.triton_image
-  cluster_name = kind_cluster.this.name
+  provisioner "local-exec" {
+    command = "kind load docker-image ${each.value} --name ${kind_cluster.this.name}"
+  }
 }
 
 resource "kubernetes_namespace_v1" "eda" {
@@ -86,7 +100,7 @@ resource "kubernetes_secret_v1" "tokens" {
 
 # ---------------------------------------------------------------- control-plane API
 resource "kubernetes_deployment_v1" "api" {
-  depends_on = [kind_load.api]
+  depends_on = [terraform_data.load_image["api"]]
   metadata {
     name      = "api"
     namespace = local.ns
@@ -99,7 +113,8 @@ resource "kubernetes_deployment_v1" "api" {
     }
     template {
       metadata {
-        labels = { app = "api" }
+        labels      = { app = "api" }
+        annotations = { "eda/image-hash" = local.image_hash["api"] }
       }
       spec {
         container {
@@ -149,7 +164,7 @@ resource "kubernetes_service_v1" "api" {
 
 # ---------------------------------------------------------------- MLflow
 resource "kubernetes_deployment_v1" "mlflow" {
-  depends_on = [kind_load.mlflow]
+  depends_on = [terraform_data.load_image["mlflow"]]
   metadata {
     name      = "mlflow"
     namespace = local.ns
@@ -162,7 +177,8 @@ resource "kubernetes_deployment_v1" "mlflow" {
     }
     template {
       metadata {
-        labels = { app = "mlflow" }
+        labels      = { app = "mlflow" }
+        annotations = { "eda/image-hash" = local.image_hash["mlflow"] }
       }
       spec {
         container {
@@ -184,8 +200,8 @@ resource "kubernetes_deployment_v1" "mlflow" {
             period_seconds = 10
           }
           resources {
-            requests = { cpu = "100m", memory = "256Mi" }
-            limits   = { memory = "1Gi" }
+            requests = { cpu = "100m", memory = "512Mi" }
+            limits   = { memory = "1536Mi" }
           }
         }
         volume {
@@ -218,7 +234,6 @@ resource "kubernetes_service_v1" "mlflow" {
 
 # ---------------------------------------------------------------- Triton (CPU)
 resource "kubernetes_deployment_v1" "triton" {
-  depends_on = [kind_load.triton]
   metadata {
     name      = "triton"
     namespace = local.ns
@@ -276,8 +291,8 @@ resource "kubernetes_deployment_v1" "triton" {
     }
   }
   timeouts {
-    create = "20m"
-    update = "20m"
+    create = "40m" # first start pulls the ~12 GB image inside the node
+    update = "40m"
   }
 }
 

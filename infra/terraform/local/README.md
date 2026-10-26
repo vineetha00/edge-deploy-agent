@@ -8,8 +8,8 @@ Prereqs: Docker Desktop (8 GB RAM, 4 CPUs), `kind`, `kubectl`, `terraform`.
 
 ```bash
 export EDA_API_TOKEN=... EDA_WORKER_TOKEN=...
-make images      # API + MLflow images, pull Triton (~12 GB once)
-make up          # export triton_repo from results/latest.json, terraform apply
+make images      # build the API + MLflow images
+make up          # export triton_repo, terraform apply (node pulls Triton, ~12 GB, first time)
 make status      # pods and services
 make bench       # Triton latency + transcription parity vs direct ONNX Runtime
 make down        # terraform destroy

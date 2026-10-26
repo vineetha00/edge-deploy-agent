@@ -17,3 +17,5 @@ mlflow.db
 mlartifacts/
 /triton_repo/
 /mlflow-data/
+# kind kubeconfig written by Terraform (cluster credentials)
+infra/terraform/local/eda-config
