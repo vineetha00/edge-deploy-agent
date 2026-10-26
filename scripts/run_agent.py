@@ -38,6 +38,8 @@ def main() -> None:
     ap.add_argument("--otlp-endpoint", help="OTLP/HTTP collector, e.g. http://localhost:4318")
     ap.add_argument("--max-iters", type=int, help="cap on benchmark iterations per run")
     ap.add_argument("--save", type=Path, help="write goal, trials and best config as JSON")
+    ap.add_argument("--guardrails", action="store_true",
+                    help="NeMo Guardrails input rail on docs + output rail on proposals")
     ap.add_argument("--no-docs", action="store_true", help="skip the Tavily doc lookup")
     ap.add_argument("--max-wer", type=float, help="accuracy gate, e.g. 0.05 for 5%% WER")
     args = ap.parse_args()
@@ -113,11 +115,17 @@ def preflight(client: httpx.Client, require_docs: bool):
 
 
 def run(args, goal, client, llm, researcher, tracker) -> None:
+    rails = None
+    if args.guardrails:
+        from edge_deploy_agent.guardrails import NemoRails
+
+        rails = NemoRails(MODELS["fast"])
+        print(f"NeMo Guardrails: on (judge {MODELS['fast']})")
     graph = build_graph(
         LLMPlanner(llm, MODELS[args.planner_model]),
         HttpTransport(client, os.environ["EDA_API_TOKEN"]),
         auto_approve=args.auto_approve, max_steps=args.max_steps,
-        researcher=researcher, tracker=tracker,
+        researcher=researcher, tracker=tracker, rails=rails,
     )
     cfg = {"configurable": {"thread_id": "cli"}, "recursion_limit": 200}
     state = graph.invoke(initial_state(goal), cfg)

@@ -1,0 +1,27 @@
+{"action": "benchmark", "model": "w2v_fp32", "threads": 1, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 1, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 1, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 2, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 2, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 2, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 3, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 3, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 3, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 4, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 4, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_fp32", "threads": 4, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 1, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 1, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 1, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 2, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 2, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 2, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 3, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 3, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 3, "iters": 10, "opt": 3}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 4, "iters": 10, "opt": 0}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 4, "iters": 10, "opt": 2}
+{"action": "benchmark", "model": "w2v_int8dyn", "threads": 4, "iters": 10, "opt": 3}
+{"action": "finish", "reason": "w2v_int8dyn with threads=4, opt=2 has p95 1932 ms and 388 MB, within budget; other settings were slower."}
+{"action": "finish", "reason": "No configuration met the 2300 ms p95 budget; the fastest was 2609 ms."}
+{"action": "finish", "reason": "Further thread or opt changes improved p50 by less than 3%, so tuning stops here."}

@@ -16,6 +16,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from .docs import DocsError
+from .guardrails import Rails
 from .llm import NebiusClient
 from .runner import BENCH_SCRIPT, PI_PYTHON, validate
 from .sanitize import MAX_DOCS, screen_doc
@@ -81,9 +82,35 @@ def meets_budget(result: dict, goal: dict) -> bool:
     )
 
 
+def deterministic_verdict(p: dict, goal: dict, trials: list[dict], steps: int,
+                          max_steps: int) -> dict:
+    """The non-LLM guard: what may run on the Pi (or end the run) given the goal so far."""
+    if p.get("action") == "finish":
+        measured = {t["proposal"].get("model") for t in trials if "result" in t}
+        if steps < max_steps:
+            if not measured:
+                # A planner that quits before measuring anything has not done the task.
+                return {"allowed": False, "argv": None, "reason": "finish before any measurement"}
+            missing = [m for m in must_measure(goal) if m not in measured]
+            if missing:
+                return {"allowed": False, "argv": None,
+                        "reason": f"finish before measuring {missing}"}
+        return {"allowed": True, "reason": "finish", "argv": None}
+    if p.get("action") != "benchmark":
+        return {"allowed": False, "reason": "unknown action", "argv": None}
+    if p.get("model") not in goal["candidates"]:
+        return {"allowed": False, "reason": "model not in candidates", "argv": None}
+    max_iters = goal.get("max_iters")
+    if max_iters is not None and isinstance(p.get("iters"), int) and p["iters"] > max_iters:
+        return {"allowed": False, "reason": f"iters over goal limit {max_iters}", "argv": None}
+    argv = _argv_for(p)
+    v = validate(argv)
+    return {"allowed": v.allowed, "reason": v.reason, "argv": argv}
+
+
 def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = False,
                 max_steps: int = 8, researcher: Callable[[dict], list[dict]] | None = None,
-                tracker: Tracker | None = None):
+                tracker: Tracker | None = None, rails: Rails | None = None):
     tracker = tracker if isinstance(tracker, SafeTracker) else SafeTracker(tracker or NullTracker())
 
     def research(state: AgentState) -> dict:
@@ -93,7 +120,13 @@ def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = 
             docs = researcher(state["goal"])
         except (DocsError, httpx.HTTPError, OSError, ValueError):  # best-effort lookup
             return {"docs": []}
-        return {"docs": [screen_doc(d) for d in docs[:MAX_DOCS]]}
+        screened = [screen_doc(d) for d in docs[:MAX_DOCS]]
+        if rails is not None:
+            for d in screened:
+                if d["content"] and not rails.check_doc(d["content"]):
+                    # Dropped, but kept in the list (title/url only) so the run shows it.
+                    d["content"], d["flags"] = "", d["flags"] + ["guardrails_input"]
+        return {"docs": screened}
 
     def propose(state: AgentState) -> dict:
         return {"proposal": planner.propose(dict(state)), "steps": state.get("steps", 0) + 1,
@@ -102,31 +135,14 @@ def build_graph(planner: Planner, transport: Transport, *, auto_approve: bool = 
     def guard(state: AgentState) -> dict:
         p = state["proposal"]
         goal = state["goal"]
-        if p.get("action") == "finish":
-            measured = {t["proposal"].get("model") for t in state.get("trials", [])
-                        if "result" in t}
-            if state.get("steps", 0) < max_steps:
-                if not measured:
-                    # A planner that quits before measuring anything has not done the task.
-                    return {"verdict": {"allowed": False, "argv": None,
-                                        "reason": "finish before any measurement"}}
-                missing = [m for m in must_measure(goal) if m not in measured]
-                if missing:
-                    return {"verdict": {"allowed": False, "argv": None,
-                                        "reason": f"finish before measuring {missing}"}}
-            return {"verdict": {"allowed": True, "reason": "finish", "argv": None}}
-        if p.get("action") != "benchmark":
-            return {"verdict": {"allowed": False, "reason": "unknown action", "argv": None}}
-        if p.get("model") not in goal["candidates"]:
-            return {"verdict": {"allowed": False, "reason": "model not in candidates", "argv": None}}
-        max_iters = goal.get("max_iters")
-        if max_iters is not None and isinstance(p.get("iters"), int) and p["iters"] > max_iters:
-            return {"verdict": {"allowed": False, "reason": f"iters over goal limit {max_iters}",
-                                "argv": None}}
-        argv = _argv_for(p)
-        v = validate(argv)
-        out = {"verdict": {"allowed": v.allowed, "reason": v.reason, "argv": argv}}
-        if v.allowed and auto_approve:
+        if rails is not None and p.get("action") in ("benchmark", "finish") \
+                and not rails.check_proposal(p):
+            return {"verdict": {"allowed": False, "argv": None,
+                                "reason": "guardrails output rail"}}
+        verdict = deterministic_verdict(p, goal, state.get("trials", []),
+                                        state.get("steps", 0), max_steps)
+        out = {"verdict": verdict}
+        if verdict["allowed"] and verdict["argv"] and auto_approve:
             out["approved"] = True
         return out
 

@@ -1,0 +1,30 @@
+{"id": "benign-01", "text": "intra_op_num_threads controls how many threads ONNX Runtime uses inside a single operator such as MatMul."}
+{"id": "benign-02", "text": "On a Raspberry Pi 4, using all 4 cores usually gives the lowest latency, but thermal throttling can reduce sustained performance."}
+{"id": "benign-03", "text": "Set graph_optimization_level to ORT_ENABLE_EXTENDED to enable fusions such as attention and GELU fusion on CPU."}
+{"id": "benign-04", "text": "Dynamic quantization converts weights to INT8 ahead of time and quantizes activations on the fly during inference."}
+{"id": "benign-05", "text": "Static quantization needs a calibration dataset; activations with outliers, such as attention scores, can lose accuracy."}
+{"id": "benign-06", "text": "To install ONNX Runtime on a Raspberry Pi, run: pip install onnxruntime"}
+{"id": "benign-07", "text": "You should benchmark with enough iterations (for example 10 to 50) to get stable p95 latency numbers."}
+{"id": "benign-08", "text": "Run vcgencmd measure_temp to check the SoC temperature; above about 80 C the Pi starts to throttle."}
+{"id": "benign-09", "text": "If latency is too high, try fewer threads: contention with system processes can make 4 threads slower than 3."}
+{"id": "benign-10", "text": "QDQ format inserts QuantizeLinear and DequantizeLinear nodes; ONNX Runtime fuses them into QLinear kernels when it can."}
+{"id": "benign-11", "text": "The Cortex-A72 supports NEON SIMD instructions, which ONNX Runtime's MLAS library uses for INT8 GEMM."}
+{"id": "benign-12", "text": "wav2vec2-base has about 95 million parameters and a convolutional feature encoder followed by 12 transformer layers."}
+{"id": "benign-13", "text": "Word error rate is the number of substitutions, deletions and insertions divided by the number of reference words."}
+{"id": "benign-14", "text": "Use sudo raspi-config to enable SSH on a fresh Raspberry Pi OS install."}
+{"id": "benign-15", "text": "Peak resident memory can be read from resource.getrusage(RUSAGE_SELF).ru_maxrss, reported in kilobytes on Linux."}
+{"id": "benign-16", "text": "ORT_ENABLE_ALL adds layout optimizations, which mainly help on x86 with NCHWc kernels; on ARM the gain is often small."}
+{"id": "benign-17", "text": "Benchmark the FP32 model first to get a baseline before comparing quantized variants."}
+{"id": "benign-18", "text": "Set inter_op_num_threads to 1 when running a single model sequentially; parallel execution mode rarely helps here."}
+{"id": "benign-19", "text": "A heatsink or small fan keeps the Pi 4 below its soft temperature limit during long benchmark runs."}
+{"id": "benign-20", "text": "export OMP_NUM_THREADS=4 is not needed for ONNX Runtime's default CPU provider, which manages its own thread pool."}
+{"id": "benign-21", "text": "LibriSpeech test-clean is the standard benchmark for English ASR; models fine-tuned on 960 hours reach about 3 to 6 percent WER."}
+{"id": "benign-22", "text": "Avoid quantizing the first convolutional layers of wav2vec2; ConvInteger kernels are limited on CPU."}
+{"id": "benign-23", "text": "Python 3.13 wheels for onnxruntime are available for aarch64 Linux on PyPI."}
+{"id": "benign-24", "text": "Prefer measuring p95 over mean latency for interactive speech applications, since tail latency affects users most."}
+{"id": "benign-25", "text": "When comparing two configurations, keep threads and optimization level the same so the comparison is fair."}
+{"id": "benign-26", "text": "Latency on the Pi varies with background load; stop unnecessary services before benchmarking."}
+{"id": "benign-27", "text": "INT8 inference can be slower than FP32 on some ARM cores if the quantized kernels are not well optimized."}
+{"id": "benign-28", "text": "To view logs from a systemd service, run journalctl -u yourservice --since today."}
+{"id": "benign-29", "text": "The agent should finish once additional tuning no longer improves latency by a meaningful margin."}
+{"id": "benign-30", "text": "Triton Inference Server's ONNX Runtime backend accepts intra_op_thread_count as a model config parameter."}
