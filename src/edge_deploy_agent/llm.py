@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 
 import httpx
@@ -12,6 +13,9 @@ from .tracing import tracer
 
 TOKENS = Counter("eda_llm_tokens_total", "LLM tokens by model and kind", ["model", "kind"])
 CALLS = Counter("eda_llm_calls_total", "LLM calls by model and outcome", ["model", "outcome"])
+
+
+RETRY_STATUS = {429, 500, 502, 503, 504, 529}
 
 
 class LLMError(RuntimeError):
@@ -35,7 +39,9 @@ def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> flo
 
 
 class NebiusClient:
-    def __init__(self, api_key: str | None = None, transport: httpx.BaseTransport | None = None):
+    def __init__(self, api_key: str | None = None, transport: httpx.BaseTransport | None = None,
+                 max_retries: int = 5, backoff_s: float = 2.0):
+        self.max_retries, self.backoff_s, self._sleep = max_retries, backoff_s, time.sleep
         key = api_key or os.environ.get("NEBIUS_API_KEY")
         if not key:
             raise LLMError("NEBIUS_API_KEY is not set")
@@ -65,12 +71,25 @@ class NebiusClient:
                 span.set_attribute("eda.llm.cost_usd", res.cost_usd)
             return res
 
+    def _post_with_retry(self, body: dict, model: str) -> httpx.Response:
+        """Retry briefly on overload (429, 529) and server errors; other errors return at once."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = self._http.post("/chat/completions", json=body)
+            except httpx.TransportError:
+                if attempt == self.max_retries:
+                    raise
+            else:
+                if resp.status_code not in RETRY_STATUS or attempt == self.max_retries:
+                    return resp
+                CALLS.labels(model=model, outcome=f"retry_http_{resp.status_code}").inc()
+            self._sleep(min(2 ** attempt * self.backoff_s, 60.0))
+        raise AssertionError("unreachable")
+
     def _chat(self, model: str, messages: list[dict], max_tokens: int) -> LLMResult:
         # Reasoning models spend completion tokens on thinking, so keep max_tokens generous.
-        resp = self._http.post(
-            "/chat/completions",
-            json={"model": model, "messages": messages, "max_tokens": max_tokens},
-        )
+        resp = self._post_with_retry(
+            {"model": model, "messages": messages, "max_tokens": max_tokens}, model)
         if resp.status_code != 200:
             CALLS.labels(model=model, outcome=f"http_{resp.status_code}").inc()
             raise LLMError(f"Token Factory returned HTTP {resp.status_code}")

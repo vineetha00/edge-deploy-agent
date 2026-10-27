@@ -30,7 +30,7 @@ def main() -> None:
     ap.add_argument("--p95-ms", type=float, required=True)
     ap.add_argument("--ram-mb", type=float, required=True)
     ap.add_argument("--max-steps", type=int, default=8)
-    ap.add_argument("--planner-model", choices=list(MODELS), default="fast")
+    ap.add_argument("--planner-model", choices=list(MODELS), default="editor")  # Nemotron Super
     ap.add_argument("--auto-approve", action="store_true")
     ap.add_argument("--wer-file", type=Path, help="JSON {variant: WER} from scripts/eval_wer.py")
     ap.add_argument("--mlflow-uri", help="MLflow tracking URI, e.g. http://127.0.0.1:5001 "

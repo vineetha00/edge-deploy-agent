@@ -47,3 +47,46 @@ def test_known_prices_loaded():
     # one Nano call from the live test: 23 prompt + 57 completion tokens
     assert estimate_cost(config.MODELS["fast"], 23, 57) == pytest.approx(0.00001506, rel=1e-3)
     assert estimate_cost(config.MODELS["planner"], 30_000, 5_000) == pytest.approx(0.045)
+
+
+def test_retries_on_overload_then_succeeds():
+    import httpx
+
+    from edge_deploy_agent.llm import NebiusClient
+
+    codes = iter([529, 503, 200])
+    body = {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    def handler(req):
+        c = next(codes)
+        return httpx.Response(c, json=body if c == 200 else {})
+
+    c = NebiusClient("k", transport=httpx.MockTransport(handler))
+    slept = []
+    c._sleep = slept.append
+    assert c.chat("m", [{"role": "user", "content": "x"}]).content == "ok"
+    assert slept == [2.0, 4.0]
+
+
+def test_gives_up_after_max_retries_and_does_not_retry_auth_errors():
+    import httpx
+    import pytest
+
+    from edge_deploy_agent.llm import LLMError, NebiusClient
+
+    calls = []
+
+    def handler(req):
+        calls.append(1)
+        return httpx.Response(529 if len(calls) < 100 else 200)
+
+    c = NebiusClient("k", transport=httpx.MockTransport(handler), max_retries=2)
+    c._sleep = lambda s: None
+    with pytest.raises(LLMError, match="529"):
+        c.chat("m", [])
+    assert len(calls) == 3
+    calls.clear()
+    c2 = NebiusClient("k", transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+    c2._sleep = lambda s: None
+    with pytest.raises(LLMError, match="401"):
+        c2.chat("m", [])
