@@ -1,0 +1,362 @@
+{
+  "goal": {
+    "candidates": [
+      "w2v_fp32",
+      "w2v_int8dyn",
+      "w2v_int8qdq"
+    ],
+    "latency_p95_ms": 2300.0,
+    "ram_mb": 700.0,
+    "max_iters": 20,
+    "max_wer": 0.065,
+    "wer": {
+      "w2v_fp32": 0.0567,
+      "w2v_int8dyn": 0.059,
+      "w2v_int8qdq": 0.1202
+    }
+  },
+  "trials": [
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_fp32",
+        "threads": 2,
+        "iters": 10,
+        "opt": 0
+      },
+      "result": {
+        "model": "w2v_fp32",
+        "provider": "CPUExecutionProvider",
+        "threads": 2,
+        "graph_opt": 0,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 4702.839249999897,
+          "p95": 4704.347870100173,
+          "mean": 4699.067844399996,
+          "min": 4684.339099999761,
+          "max": 4704.352479000136
+        },
+        "peak_rss_mb": 826.234375,
+        "temp_c_before": 46.7,
+        "temp_c_after": 63.7,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    },
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 2,
+        "iters": 10,
+        "opt": 0
+      },
+      "result": {
+        "model": "w2v_int8dyn",
+        "provider": "CPUExecutionProvider",
+        "threads": 2,
+        "graph_opt": 0,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 3608.562561000099,
+          "p95": 3612.231332949955,
+          "mean": 3608.476443100062,
+          "min": 3601.68867900029,
+          "max": 3613.0728909997742
+        },
+        "peak_rss_mb": 436.6015625,
+        "temp_c_before": 52.5,
+        "temp_c_after": 66.2,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    },
+    {
+      "blocked": "guardrails output rail",
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 4,
+        "iters": 10,
+        "opt": 0
+      }
+    },
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 1,
+        "iters": 10,
+        "opt": 0
+      },
+      "result": {
+        "model": "w2v_int8dyn",
+        "provider": "CPUExecutionProvider",
+        "threads": 1,
+        "graph_opt": 0,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 6436.834633499757,
+          "p95": 6446.38095295013,
+          "mean": 6438.478791300076,
+          "min": 6435.092812000221,
+          "max": 6453.217879000022
+        },
+        "peak_rss_mb": 436.51953125,
+        "temp_c_before": 52.5,
+        "temp_c_after": 60.8,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    },
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 3,
+        "iters": 10,
+        "opt": 0
+      },
+      "result": {
+        "model": "w2v_int8dyn",
+        "provider": "CPUExecutionProvider",
+        "threads": 3,
+        "graph_opt": 0,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 2722.5242824999896,
+          "p95": 2724.109957850078,
+          "mean": 2722.2460021000643,
+          "min": 2720.048186999975,
+          "max": 2724.308267000197
+        },
+        "peak_rss_mb": 436.66015625,
+        "temp_c_before": 52.5,
+        "temp_c_after": 69.6,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    },
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 3,
+        "iters": 10,
+        "opt": 2
+      },
+      "result": {
+        "model": "w2v_int8dyn",
+        "provider": "CPUExecutionProvider",
+        "threads": 3,
+        "graph_opt": 2,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 2414.1761954999765,
+          "p95": 2419.0267789001837,
+          "mean": 2414.1549917001157,
+          "min": 2408.2526600000165,
+          "max": 2419.6324060003462
+        },
+        "peak_rss_mb": 387.62890625,
+        "temp_c_before": 55.5,
+        "temp_c_after": 73.5,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    },
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 4,
+        "iters": 10,
+        "opt": 2
+      },
+      "result": {
+        "model": "w2v_int8dyn",
+        "provider": "CPUExecutionProvider",
+        "threads": 4,
+        "graph_opt": 2,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 1956.6944304999652,
+          "p95": 1962.144169499993,
+          "mean": 1956.7427359000249,
+          "min": 1951.0013720000643,
+          "max": 1962.7329089998966
+        },
+        "peak_rss_mb": 387.78125,
+        "temp_c_before": 55.0,
+        "temp_c_after": 78.4,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    },
+    {
+      "proposal": {
+        "action": "benchmark",
+        "model": "w2v_int8dyn",
+        "threads": 4,
+        "iters": 10,
+        "opt": 0
+      },
+      "result": {
+        "model": "w2v_int8dyn",
+        "provider": "CPUExecutionProvider",
+        "threads": 4,
+        "graph_opt": 0,
+        "iters": 10,
+        "cooldown_s": 0.0,
+        "input_shapes": {
+          "input_values": [
+            1,
+            80000
+          ]
+        },
+        "latency_ms": {
+          "p50": 2306.2721909998345,
+          "p95": 2308.8212260499404,
+          "mean": 2305.6492797999454,
+          "min": 2301.6741599999477,
+          "max": 2308.9657529999386
+        },
+        "peak_rss_mb": 436.81640625,
+        "temp_c_before": 55.0,
+        "temp_c_after": 74.0,
+        "throttled_before": "0x0",
+        "throttled_after": "0x0",
+        "new_throttle_flags": [],
+        "telemetry_ok": true,
+        "run_valid": true
+      }
+    }
+  ],
+  "best": {
+    "proposal": {
+      "action": "benchmark",
+      "model": "w2v_int8dyn",
+      "threads": 4,
+      "iters": 10,
+      "opt": 2
+    },
+    "result": {
+      "model": "w2v_int8dyn",
+      "provider": "CPUExecutionProvider",
+      "threads": 4,
+      "graph_opt": 2,
+      "iters": 10,
+      "cooldown_s": 0.0,
+      "input_shapes": {
+        "input_values": [
+          1,
+          80000
+        ]
+      },
+      "latency_ms": {
+        "p50": 1956.6944304999652,
+        "p95": 1962.144169499993,
+        "mean": 1956.7427359000249,
+        "min": 1951.0013720000643,
+        "max": 1962.7329089998966
+      },
+      "peak_rss_mb": 387.78125,
+      "temp_c_before": 55.0,
+      "temp_c_after": 78.4,
+      "throttled_before": "0x0",
+      "throttled_after": "0x0",
+      "new_throttle_flags": [],
+      "telemetry_ok": true,
+      "run_valid": true
+    }
+  },
+  "report": "Best config meeting budget: {'action': 'benchmark', 'model': 'w2v_int8dyn', 'threads': 4, 'iters': 10, 'opt': 2} -> p50 1956.69 ms, p95 1962.14 ms, peak RSS 388 MB. 7 runs, 1 blocked.",
+  "docs": [
+    {
+      "title": "Onnx Model Quantization | by Nashrakhan | Medium",
+      "url": "https://medium.com/@nashrakhan1008/model-quantization-8f10c537e0eb",
+      "flags": []
+    },
+    {
+      "title": "Faster and Lighter Model Inference with ONNX Runtime from Cloud to Client",
+      "url": "https://www.youtube.com/watch?v=WDww8ce12Mc",
+      "flags": []
+    },
+    {
+      "title": "Quantize ONNX models | onnxruntime",
+      "url": "https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html",
+      "flags": []
+    },
+    {
+      "title": "Optimizing and deploying transformer INT8 inference with ONNX Runtime-TensorRT on NVIDIA GPUs | Microsoft Open Source Blog",
+      "url": "https://opensource.microsoft.com/blog/2022/05/02/optimizing-and-deploying-transformer-int8-inference-with-onnx-runtime-tensorrt-on-nvidia-gpus",
+      "flags": []
+    },
+    {
+      "title": "Accelerating Deep Learning Model Inference on Arm CPUs ...",
+      "url": "https://arxiv.org/pdf/2207.08820",
+      "flags": []
+    }
+  ]
+}
