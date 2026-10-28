@@ -6,6 +6,8 @@ behind deterministic and LLM guardrails, with every trial tracked and traced.
 
 Built for the Nebius x NVIDIA Global AI Hackathon (Coding & Agentic Engineering track).
 
+**Demo video:** https://youtu.be/2QCPIlOW3wk
+
 ## Results (measured on the Pi)
 
 wav2vec2-base-960h (ONNX), 5-second audio clip, ONNX Runtime CPU on a Raspberry Pi 4 (4 GB).
@@ -39,6 +41,15 @@ blocked actions (full record: [`results/2026-10-25-agent-run.json`](results/2026
 The winning configuration is exported to a **Triton Inference Server** model repository
 (thread count and graph-optimization level carried into `config.pbtxt`) and served on
 Kubernetes; Triton-served WER on the same 53 utterances is **5.90%**, the same as on the Pi.
+
+### Live demo run (results/demo-run.json)
+
+A second full agent run, recorded for the demo video: 8 proposals, 7 benchmarked, 1 blocked.
+The agent again picked dynamic INT8 with 4 threads and extended graph optimizations
+(p95 1962 ms, 388 MB), against 1932 ms in the earlier run, so the winner repeats and the
+latency varies by about 2%. The NeMo output rail blocked one real proposal (trial 3), a false
+block. The FP32 row in that run used 2 threads and no graph optimizations (4704 ms), so use the
+same-settings table above for the FP32 comparison.
 
 ## How it works
 
